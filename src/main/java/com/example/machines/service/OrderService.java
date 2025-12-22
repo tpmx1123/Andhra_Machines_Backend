@@ -2,6 +2,7 @@ package com.example.machines.service;
 
 import com.example.machines.dto.OrderRequest;
 import com.example.machines.dto.OrderResponse;
+import com.example.machines.dto.OrderStatusUpdateMessage;
 import com.example.machines.entity.*;
 import com.example.machines.repository.OrderRepository;
 import com.example.machines.repository.ProductRepository;
@@ -28,6 +29,9 @@ public class OrderService {
 
     @Autowired
     private EmailService emailService;
+
+    @Autowired
+    private WebSocketService webSocketService;
 
     @Transactional
     public OrderResponse createOrder(Long userId, OrderRequest request) {
@@ -163,6 +167,19 @@ public class OrderService {
             } catch (Exception e) {
                 System.err.println("Failed to send order status update email: " + e.getMessage());
             }
+
+            // Send WebSocket notification to order owner
+            OrderStatusUpdateMessage statusUpdate = new OrderStatusUpdateMessage(
+                order.getId(),
+                order.getOrderNumber(),
+                status.toUpperCase(),
+                "Order status updated to: " + status,
+                order.getUser().getId()
+            );
+            webSocketService.sendOrderStatusUpdate(order.getUser().getId(), statusUpdate);
+            
+            // Also broadcast to admin panel
+            webSocketService.broadcastOrderStatusUpdate(statusUpdate);
 
             return OrderResponse.fromEntity(order);
         } catch (IllegalArgumentException e) {

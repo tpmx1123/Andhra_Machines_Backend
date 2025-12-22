@@ -11,5 +11,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findByIsActiveTrue();
     List<Product> findByInStockTrue();
     java.util.Optional<Product> findByBrandSlug(String brandSlug);
+    List<Product> findByScheduledPriceIsNotNullAndPriceStartDateIsNotNullAndPriceEndDateIsNotNull();
 }
 

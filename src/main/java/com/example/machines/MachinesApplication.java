@@ -9,6 +9,7 @@ import java.io.File;
 
 @SpringBootApplication
 @EnableAsync
+@org.springframework.scheduling.annotation.EnableScheduling
 public class MachinesApplication {
 	public static void main(String[] args) {
 		// Load .env file before Spring Boot starts

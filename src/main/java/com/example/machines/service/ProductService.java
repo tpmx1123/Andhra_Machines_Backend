@@ -1,5 +1,6 @@
 package com.example.machines.service;
 
+import com.example.machines.dto.PriceUpdateMessage;
 import com.example.machines.dto.ProductRequest;
 import com.example.machines.dto.ProductResponse;
 import com.example.machines.entity.Product;
@@ -24,6 +25,9 @@ public class ProductService {
 
     @Autowired
     private ReviewRepository reviewRepository;
+
+    @Autowired
+    private WebSocketService webSocketService;
 
     public List<ProductResponse> getAllProducts() {
         // Only return active products for public listing
@@ -169,6 +173,13 @@ public class ProductService {
     }
 
     /**
+     * Public method for scheduled service to call
+     */
+    public void applyScheduledPriceChangeForSchedule(Product product) {
+        applyScheduledPriceChange(product);
+    }
+
+    /**
      * Apply scheduled price changes if current time is within the scheduled period
      * Revert to original price after end date or before start date
      * Uses IST (Asia/Kolkata) timezone for all date comparisons
@@ -206,9 +217,20 @@ public class ProductService {
                 // Apply scheduled price if not already applied
                 System.out.println("Status: WITHIN scheduled period - Applying scheduled price");
                 if (!product.getPrice().equals(product.getScheduledPrice())) {
+                    BigDecimal oldPrice = product.getPrice();
                     product.setPrice(product.getScheduledPrice());
                     productRepository.save(product);
                     System.out.println("Price updated to scheduled price: " + product.getScheduledPrice());
+                    
+                    // Send WebSocket notification
+                    PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
+                        product.getId(),
+                        product.getScheduledPrice(),
+                        product.getOriginalPriceBeforeSchedule(),
+                        "Price updated: Scheduled discount applied",
+                        "PRICE_CHANGED"
+                    );
+                    webSocketService.broadcastPriceUpdate(priceUpdate);
                 } else {
                     System.out.println("Price already set to scheduled price");
                 }
@@ -218,9 +240,20 @@ public class ProductService {
                 System.out.println("Status: BEFORE start date - Using original price");
                 if (product.getOriginalPriceBeforeSchedule() != null && 
                     !product.getPrice().equals(product.getOriginalPriceBeforeSchedule())) {
+                    BigDecimal oldPrice = product.getPrice();
                     product.setPrice(product.getOriginalPriceBeforeSchedule());
                     productRepository.save(product);
                     System.out.println("Price reverted to original: " + product.getOriginalPriceBeforeSchedule());
+                    
+                    // Send WebSocket notification
+                    PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
+                        product.getId(),
+                        product.getOriginalPriceBeforeSchedule(),
+                        product.getOriginalPriceBeforeSchedule(),
+                        "Price reverted: Schedule not started yet",
+                        "PRICE_REVERTED"
+                    );
+                    webSocketService.broadcastPriceUpdate(priceUpdate);
                 } else {
                     System.out.println("Price already set to original");
                 }
@@ -228,9 +261,10 @@ public class ProductService {
             // If end date has passed, revert to original price and clear scheduling
             else if (now.isAfter(endDate)) {
                 System.out.println("Status: AFTER end date - Clearing schedule and reverting price");
-                if (product.getOriginalPriceBeforeSchedule() != null) {
-                    product.setPrice(product.getOriginalPriceBeforeSchedule());
-                    System.out.println("Price reverted to original: " + product.getOriginalPriceBeforeSchedule());
+                BigDecimal originalPrice = product.getOriginalPriceBeforeSchedule();
+                if (originalPrice != null) {
+                    product.setPrice(originalPrice);
+                    System.out.println("Price reverted to original: " + originalPrice);
                 }
                 
                 // Clear scheduled price fields
@@ -240,6 +274,16 @@ public class ProductService {
                 product.setOriginalPriceBeforeSchedule(null);
                 productRepository.save(product);
                 System.out.println("Schedule cleared");
+                
+                // Send WebSocket notification
+                PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
+                    product.getId(),
+                    originalPrice != null ? originalPrice : product.getPrice(),
+                    originalPrice,
+                    "Price reverted: Schedule ended",
+                    "SCHEDULE_ENDED"
+                );
+                webSocketService.broadcastPriceUpdate(priceUpdate);
             }
             System.out.println("=== End Price Scheduling Check ===\n");
         }
