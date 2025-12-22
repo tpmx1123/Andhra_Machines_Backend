@@ -28,6 +28,10 @@ CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 # Admin Contact Information
 ADMIN_EMAIL=your_admin_email@gmail.com
 ADMIN_PHONE=+91 8328657726
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key_minimum_256_bits_long_for_security
+JWT_EXPIRATION=86400000
 ```
 
 3. **Replace the placeholder values:**
@@ -38,6 +42,8 @@ ADMIN_PHONE=+91 8328657726
    - `CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name
    - `CLOUDINARY_API_KEY`: Your Cloudinary API key
    - `CLOUDINARY_API_SECRET`: Your Cloudinary API secret
+   - `JWT_SECRET`: A secure random string (minimum 256 bits/32 characters) for signing JWT tokens
+   - `JWT_EXPIRATION`: Token expiration time in milliseconds (86400000 = 24 hours)
 
 ## Gmail App Password Setup
 

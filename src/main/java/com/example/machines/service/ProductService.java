@@ -134,7 +134,13 @@ public class ProductService {
 
         // Highlights / specs
         product.setHighlights(request.getHighlights());
-        product.setSpecificationsJson(request.getSpecificationsJson());
+        // Handle specificationsJson - allow null or empty string, but preserve valid JSON strings
+        String specsJson = request.getSpecificationsJson();
+        if (specsJson != null && specsJson.trim().isEmpty()) {
+            product.setSpecificationsJson(null);
+        } else {
+            product.setSpecificationsJson(specsJson);
+        }
 
         // Ensure rating defaults
         if (product.getRating() == null) {
