@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -169,15 +171,17 @@ public class ProductService {
     /**
      * Apply scheduled price changes if current time is within the scheduled period
      * Revert to original price after end date or before start date
-     * Uses system default timezone for all date comparisons
+     * Uses IST (Asia/Kolkata) timezone for all date comparisons
      */
     private void applyScheduledPriceChange(Product product) {
         if (product.getScheduledPrice() != null && 
             product.getPriceStartDate() != null && 
             product.getPriceEndDate() != null) {
             
-            // Get current time using system default timezone
-            LocalDateTime now = LocalDateTime.now();
+            // Get current time in IST (Asia/Kolkata) timezone
+            ZoneId istZone = ZoneId.of("Asia/Kolkata");
+            ZonedDateTime nowZoned = ZonedDateTime.now(istZone);
+            LocalDateTime now = nowZoned.toLocalDateTime();
             LocalDateTime startDate = product.getPriceStartDate();
             LocalDateTime endDate = product.getPriceEndDate();
             
