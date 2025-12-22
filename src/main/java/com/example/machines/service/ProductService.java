@@ -24,6 +24,17 @@ public class ProductService {
     private ReviewRepository reviewRepository;
 
     public List<ProductResponse> getAllProducts() {
+        // Only return active products for public listing
+        List<Product> products = productRepository.findByIsActiveTrue();
+        // Apply scheduled price changes
+        products.forEach(this::applyScheduledPriceChange);
+        return products.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+    
+    // Admin method to get all products including inactive ones
+    public List<ProductResponse> getAllProductsForAdmin() {
         List<Product> products = productRepository.findAll();
         // Apply scheduled price changes
         products.forEach(this::applyScheduledPriceChange);
@@ -69,16 +80,20 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
 
-        // Delete associated reviews first to avoid foreign key constraint issues
-        reviewRepository.deleteByProduct(product);
-
-        // Delete the product
-        productRepository.delete(product);
+        // Instead of hard delete, use soft delete to preserve order history
+        // This prevents foreign key constraint errors with order_items table
+        // Set product as inactive and out of stock
+        product.setIsActive(false);
+        product.setInStock(false);
         
-        // Verify deletion
-        if (productRepository.existsById(id)) {
-            throw new RuntimeException("Failed to delete product with id: " + id);
-        }
+        // Keep reviews for historical data - don't delete them
+        // The product will no longer appear in public listings but order history is preserved
+        
+        // Save the updated product (soft delete)
+        productRepository.save(product);
+        
+        // Note: This is a soft delete - the product still exists in the database
+        // but is marked as inactive, so it won't appear in public product listings
     }
 
     private void applyRequestToProduct(Product product, ProductRequest request) {
