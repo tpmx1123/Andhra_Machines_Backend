@@ -26,16 +26,60 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            helper.setFrom(fromEmail);
+            helper.setFrom(fromEmail, "Andhra Machines Agencies");
             helper.setTo(toEmail);
             helper.setSubject("New Blog Post: " + blogTitle);
             
-            String blogUrl = "http://localhost:5173/blog/" + blogSlug; // Update with production URL in future
-            String content = "<h1>New Blog Post Alert!</h1>" +
-                             "<p>Hi there,</p>" +
-                             "<p>We just published a new blog post: <strong>" + blogTitle + "</strong></p>" +
-                             "<p>You can read it here: <a href='" + blogUrl + "'>" + blogUrl + "</a></p>" +
-                             "<br><p>Best regards,<br>Andhra Sewing Machines</p>";
+            // Use production URL
+            String blogUrl = "https://andhramachinesagencies.com/blog/" + blogSlug;
+            
+            // Professional HTML email template
+            String content = "<!DOCTYPE html>" +
+                    "<html>" +
+                    "<head>" +
+                    "<meta charset='UTF-8'>" +
+                    "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                    "</head>" +
+                    "<body style='margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;'>" +
+                    "<table width='100%' cellpadding='0' cellspacing='0' style='background-color: #f5f5f5; padding: 20px;'>" +
+                    "<tr>" +
+                    "<td align='center'>" +
+                    "<table width='600' cellpadding='0' cellspacing='0' style='background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>" +
+                    // Header
+                    "<tr>" +
+                    "<td style='background-color: #c54513; padding: 30px 20px; text-align: center;'>" +
+                    "<h1 style='color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;'>New Blog Post Alert!</h1>" +
+                    "</td>" +
+                    "</tr>" +
+                    // Content
+                    "<tr>" +
+                    "<td style='padding: 30px 20px;'>" +
+                    "<p style='color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;'>Hi there,</p>" +
+                    "<p style='color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;'>We just published a new blog post that we think you'll find interesting:</p>" +
+                    "<div style='background-color: #f9f9f9; border-left: 4px solid #c54513; padding: 15px; margin: 20px 0;'>" +
+                    "<h2 style='color: #c54513; margin: 0 0 10px 0; font-size: 20px; font-weight: bold;'>" + escapeHtml(blogTitle) + "</h2>" +
+                    "</div>" +
+                    "<div style='text-align: center; margin: 30px 0;'>" +
+                    "<a href='" + blogUrl + "' style='display: inline-block; background-color: #c54513; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 5px; font-weight: bold; font-size: 16px;'>Read Full Article</a>" +
+                    "</div>" +
+                    "<p style='color: #666666; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;'>Or copy and paste this link into your browser:</p>" +
+                    "<p style='color: #c54513; font-size: 14px; word-break: break-all; margin: 5px 0;'>" + blogUrl + "</p>" +
+                    "</td>" +
+                    "</tr>" +
+                    // Footer
+                    "<tr>" +
+                    "<td style='background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #e0e0e0;'>" +
+                    "<p style='color: #666666; font-size: 14px; margin: 0 0 10px 0;'>Best regards,</p>" +
+                    "<p style='color: #c54513; font-size: 16px; font-weight: bold; margin: 0;'>Andhra Machines Agencies</p>" +
+                    "<p style='color: #999999; font-size: 12px; margin: 15px 0 0 0;'>Stitching Trust Since 1982</p>" +
+                    "</td>" +
+                    "</tr>" +
+                    "</table>" +
+                    "</td>" +
+                    "</tr>" +
+                    "</table>" +
+                    "</body>" +
+                    "</html>";
             
             helper.setText(content, true);
             mailSender.send(message);
