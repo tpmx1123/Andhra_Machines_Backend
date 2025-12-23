@@ -65,6 +65,13 @@ public class ProductService {
 
     public ProductResponse createProduct(ProductRequest request) {
         Product product = new Product();
+        // Set default values for new products
+        if (request.getIsActive() == null) {
+            product.setIsActive(true);
+        }
+        if (request.getInStock() == null) {
+            product.setInStock(true);
+        }
         applyRequestToProduct(product, request);
 
         product = productRepository.save(product);
@@ -121,9 +128,17 @@ public class ProductService {
         product.setGalleryImages(request.getGalleryImages());
 
         // Status / stock
-        product.setIsActive(request.getIsActive());
-        product.setInStock(request.getInStock());
-        product.setStockQuantity(request.getStockQuantity());
+        // Only update isActive if explicitly provided in request, otherwise preserve existing value
+        if (request.getIsActive() != null) {
+            product.setIsActive(request.getIsActive());
+        }
+        // Only update inStock if explicitly provided in request, otherwise preserve existing value
+        if (request.getInStock() != null) {
+            product.setInStock(request.getInStock());
+        }
+        if (request.getStockQuantity() != null) {
+            product.setStockQuantity(request.getStockQuantity());
+        }
 
         // Badges
         product.setIsOnSale(request.getIsOnSale());

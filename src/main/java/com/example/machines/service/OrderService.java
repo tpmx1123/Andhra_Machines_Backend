@@ -70,6 +70,11 @@ public class OrderService {
             // Use price from cart (what user saw) if provided, otherwise use database price
             BigDecimal unitPrice = itemRequest.getPrice() != null ? itemRequest.getPrice() : product.getPrice();
             BigDecimal originalPrice = itemRequest.getOriginalPrice() != null ? itemRequest.getOriginalPrice() : product.getOriginalPrice();
+            
+            // If originalPrice is null, use unitPrice as originalPrice
+            if (originalPrice == null) {
+                originalPrice = unitPrice;
+            }
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
@@ -82,14 +87,17 @@ public class OrderService {
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
             orderItem.setTotalPrice(itemTotal);
 
-            if (originalPrice != null && originalPrice.compareTo(unitPrice) > 0) {
+            // Calculate subtotal using original prices (before discount)
+            BigDecimal itemSubtotal = originalPrice.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
+            subtotal = subtotal.add(itemSubtotal);
+
+            // Calculate discount (difference between original and current price)
+            if (originalPrice.compareTo(unitPrice) > 0) {
                 BigDecimal itemDiscount = originalPrice
                         .subtract(unitPrice)
                         .multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
                 discount = discount.add(itemDiscount);
             }
-
-            subtotal = subtotal.add(itemTotal);
             
             // Add item to order's items list (cascade will save it)
             order.getItems().add(orderItem);
@@ -98,13 +106,10 @@ public class OrderService {
         order.setSubtotal(subtotal);
         order.setDiscount(discount);
         order.setDeliveryCharge(BigDecimal.ZERO); // Free delivery
-        // Total should be subtotal + delivery charge (discount is already applied in unitPrice)
-        order.setTotal(subtotal.add(order.getDeliveryCharge()));
+        // Total is subtotal minus discount
+        order.setTotal(subtotal.subtract(discount).add(order.getDeliveryCharge()));
         
-
-        if (request.getPaymentMethod() != null) {
-            order.setPaymentStatus("paid");
-        }
+        // Payment status remains "pending" until order is confirmed
 
         // Save order (cascade will save all items)
         order = orderRepository.save(order);
@@ -158,7 +163,14 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         
         try {
-            order.setStatus(Order.OrderStatus.valueOf(status.toUpperCase()));
+            Order.OrderStatus newStatus = Order.OrderStatus.valueOf(status.toUpperCase());
+            order.setStatus(newStatus);
+            
+            // Update payment status to "paid" when order status changes to CONFIRMED
+            if (newStatus == Order.OrderStatus.CONFIRMED && "pending".equals(order.getPaymentStatus())) {
+                order.setPaymentStatus("paid");
+            }
+            
             order = orderRepository.save(order);
 
             // Send order status update email

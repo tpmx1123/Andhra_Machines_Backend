@@ -49,21 +49,22 @@ public class AdminController {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Update user fields
+        // Update user fields (email cannot be changed)
         if (userData.containsKey("name")) {
             user.setName(userData.get("name"));
         }
-        if (userData.containsKey("email")) {
-            // Check if email is already taken by another user
-            User existingUser = userRepository.findByEmail(userData.get("email")).orElse(null);
-            if (existingUser != null && !existingUser.getId().equals(id)) {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
-                errorResponse.put("error", "Email already exists");
-                return ResponseEntity.badRequest().body(errorResponse);
-            }
-            user.setEmail(userData.get("email"));
-        }
+        // Email editing is disabled for security reasons
+        // if (userData.containsKey("email")) {
+        //     // Check if email is already taken by another user
+        //     User existingUser = userRepository.findByEmail(userData.get("email")).orElse(null);
+        //     if (existingUser != null && !existingUser.getId().equals(id)) {
+        //         Map<String, Object> errorResponse = new HashMap<>();
+        //         errorResponse.put("success", false);
+        //         errorResponse.put("error", "Email already exists");
+        //         return ResponseEntity.badRequest().body(errorResponse);
+        //     }
+        //     user.setEmail(userData.get("email"));
+        // }
         if (userData.containsKey("phone")) {
             user.setPhone(userData.get("phone"));
         }

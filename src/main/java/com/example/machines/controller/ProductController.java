@@ -31,6 +31,11 @@ public class ProductController {
         return ResponseEntity.ok(productService.getAllProducts());
     }
 
+    @GetMapping("/admin")
+    public ResponseEntity<List<ProductResponse>> getAllProductsForAdmin() {
+        return ResponseEntity.ok(productService.getAllProductsForAdmin());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponse> getProductById(@PathVariable String id) {
         // Try to parse as Long (ID), if fails, treat as slug
