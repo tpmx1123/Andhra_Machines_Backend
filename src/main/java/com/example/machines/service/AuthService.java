@@ -8,11 +8,16 @@ import com.example.machines.entity.User;
 import com.example.machines.repository.AdminRepository;
 import com.example.machines.repository.UserRepository;
 import com.example.machines.util.JwtUtil;
+import io.jsonwebtoken.Claims;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class AuthService {
@@ -191,6 +196,45 @@ public class AuthService {
         }
 
         return new AuthResponse(false, "Invalid email or password", null);
+    }
+
+    public ResponseEntity<?> getCurrentUser(String token) {
+        try {
+            Claims claims = jwtUtil.getClaims(token);
+            String role = (String) claims.get("role");
+            Long userId = ((Number) claims.get("userId")).longValue();
+
+            Map<String, Object> userData = new HashMap<>();
+            
+            if ("ADMIN".equals(role)) {
+                Admin admin = adminRepository.findById(userId).orElse(null);
+                if (admin == null) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(Map.of("success", false, "message", "User not found"));
+                }
+                userData.put("id", admin.getId());
+                userData.put("name", admin.getName());
+                userData.put("email", admin.getEmail());
+                userData.put("phone", admin.getPhone());
+                userData.put("role", "ADMIN");
+            } else {
+                User user = userRepository.findById(userId).orElse(null);
+                if (user == null) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(Map.of("success", false, "message", "User not found"));
+                }
+                userData.put("id", user.getId());
+                userData.put("name", user.getName());
+                userData.put("email", user.getEmail());
+                userData.put("phone", user.getPhone());
+                userData.put("role", "USER");
+            }
+
+            return ResponseEntity.ok(userData);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "message", "Invalid or expired token"));
+        }
     }
 }
 

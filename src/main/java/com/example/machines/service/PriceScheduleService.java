@@ -11,21 +11,15 @@ import java.util.List;
 
 @Service
 public class PriceScheduleService {
-
     @Autowired
     private ProductRepository productRepository;
-
     @Autowired
     private ProductService productService;
-
-    @Autowired
-    private WebSocketService webSocketService;
-
     /**
      * Check for scheduled price changes every minute
      * This ensures prices are updated in real-time when schedules trigger
      */
-    @Scheduled(fixedRate = 60000) // Run every 60 seconds (1 minute)
+    @Scheduled(fixedRate = 30000) // Run every 30 seconds
     @Transactional
     public void checkScheduledPriceChanges() {
         // Get all products with active schedules

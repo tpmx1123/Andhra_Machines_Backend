@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 @Service
 public class WebSocketService {
 
@@ -38,6 +40,17 @@ public class WebSocketService {
      */
     public void broadcastOrderStatusUpdate(OrderStatusUpdateMessage message) {
         messagingTemplate.convertAndSend("/topic/order-updates", message);
+    }
+
+    /**
+     * Send user update notification to specific user
+     */
+    public void sendUserUpdateNotification(Long userId, String message) {
+        Map<String, Object> updateMessage = new java.util.HashMap<>();
+        updateMessage.put("userId", userId);
+        updateMessage.put("message", message);
+        updateMessage.put("type", "USER_UPDATED");
+        messagingTemplate.convertAndSendToUser(userId.toString(), "/queue/user-updates", updateMessage);
     }
 }
 
