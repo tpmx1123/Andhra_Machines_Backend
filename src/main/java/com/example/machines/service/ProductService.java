@@ -7,6 +7,7 @@ import com.example.machines.entity.Product;
 import com.example.machines.repository.ProductRepository;
 import com.example.machines.repository.ReviewRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,10 @@ public class ProductService {
 
     @Autowired
     private WebSocketService webSocketService;
+    
+    @Autowired
+    @Lazy
+    private CartService cartService;
 
     public List<ProductResponse> getAllProducts() {
         // Only return active products for public listing
@@ -248,6 +253,16 @@ public class ProductService {
                     webSocketService.broadcastPriceUpdate(priceUpdate);
                 } else {
                     System.out.println("Price already set to scheduled price");
+                    // Send periodic sync notification to keep frontend in sync
+                    // This ensures frontend gets updated even if it missed the initial notification
+                    PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
+                        product.getId(),
+                        product.getScheduledPrice(),
+                        product.getOriginalPriceBeforeSchedule(),
+                        "Price sync: Scheduled price active",
+                        "PRICE_SYNC"
+                    );
+                    webSocketService.broadcastPriceUpdate(priceUpdate);
                 }
             } 
             // If before start date, use original price
@@ -290,15 +305,22 @@ public class ProductService {
                 productRepository.save(product);
                 System.out.println("Schedule cleared");
                 
-                // Send WebSocket notification
+                // Send WebSocket notification (always send to sync cart)
                 PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
                     product.getId(),
                     originalPrice != null ? originalPrice : product.getPrice(),
-                    originalPrice,
+                    originalPrice != null ? originalPrice : product.getPrice(),
                     "Price reverted: Schedule ended",
                     "SCHEDULE_ENDED"
                 );
                 webSocketService.broadcastPriceUpdate(priceUpdate);
+                
+                // Also sync cart prices in database for all users who have this product in cart
+                try {
+                    cartService.syncCartPricesForProduct(product.getId());
+                } catch (Exception e) {
+                    System.err.println("Error syncing cart prices for product " + product.getId() + ": " + e.getMessage());
+                }
             }
             System.out.println("=== End Price Scheduling Check ===\n");
         }

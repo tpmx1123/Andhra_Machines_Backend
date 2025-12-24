@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -155,6 +156,33 @@ public class CartService {
             }
         }
         cartRepository.save(cart);
+    }
+
+    /**
+     * Sync cart prices for a specific product across all carts
+     * Called when a product price changes (e.g., scheduled price expires)
+     */
+    @Transactional
+    public void syncCartPricesForProduct(Long productId) {
+        Product product = productRepository.findById(productId).orElse(null);
+        if (product == null) {
+            return;
+        }
+        
+        // Apply scheduled price changes to get current price
+        productService.applyScheduledPriceChangeForSchedule(product);
+        product = productRepository.findById(productId).orElse(product);
+        
+        // Find all cart items with this product
+        List<CartItem> cartItems = cartItemRepository.findByProductId(productId);
+        
+        for (CartItem item : cartItems) {
+            item.setPrice(product.getPrice());
+            item.setOriginalPrice(product.getOriginalPrice() != null ? product.getOriginalPrice() : product.getPrice());
+            cartItemRepository.save(item);
+        }
+        
+        System.out.println("Synced cart prices for product " + productId + " in " + cartItems.size() + " cart(s)");
     }
 }
 

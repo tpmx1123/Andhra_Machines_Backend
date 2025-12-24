@@ -62,6 +62,8 @@ class OrderItemResponse {
     private Long id;
     private Long productId;
     private String productName;
+    private String brandSlug;
+    private String productImage;
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal originalPrice;
@@ -72,6 +74,8 @@ class OrderItemResponse {
         response.setId(item.getId());
         response.setProductId(item.getProduct().getId());
         response.setProductName(item.getProductName());
+        response.setBrandSlug(item.getProduct().getBrandSlug());
+        response.setProductImage(item.getProduct().getMainImageUrl() != null ? item.getProduct().getMainImageUrl() : item.getProduct().getImageUrl());
         response.setQuantity(item.getQuantity());
         response.setUnitPrice(item.getUnitPrice());
         response.setOriginalPrice(item.getOriginalPrice());
