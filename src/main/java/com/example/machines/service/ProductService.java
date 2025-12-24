@@ -6,6 +6,9 @@ import com.example.machines.dto.ProductResponse;
 import com.example.machines.entity.Product;
 import com.example.machines.repository.ProductRepository;
 import com.example.machines.repository.ReviewRepository;
+import com.example.machines.repository.CartItemRepository;
+import com.example.machines.repository.FavoriteRepository;
+import com.example.machines.repository.OrderItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,15 @@ public class ProductService {
 
     @Autowired
     private ReviewRepository reviewRepository;
+
+    @Autowired
+    private CartItemRepository cartItemRepository;
+
+    @Autowired
+    private FavoriteRepository favoriteRepository;
+
+    @Autowired
+    private OrderItemRepository orderItemRepository;
 
     @Autowired
     private WebSocketService webSocketService;
@@ -98,20 +110,40 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
 
-        // Instead of hard delete, use soft delete to preserve order history
-        // This prevents foreign key constraint errors with order_items table
-        // Set product as inactive and out of stock
-        product.setIsActive(false);
-        product.setInStock(false);
-        
-        // Keep reviews for historical data - don't delete them
-        // The product will no longer appear in public listings but order history is preserved
-        
-        // Save the updated product (soft delete)
-        productRepository.save(product);
-        
-        // Note: This is a soft delete - the product still exists in the database
-        // but is marked as inactive, so it won't appear in public product listings
+        // Check if product has been ordered (has OrderItems)
+        // If it has orders, we need to handle the foreign key constraint
+        boolean hasOrders = orderItemRepository.findAll().stream()
+                .anyMatch(item -> item.getProduct() != null && item.getProduct().getId().equals(id));
+
+        if (hasOrders) {
+            // Product has been ordered - cannot hard delete due to foreign key constraints
+            // Use soft delete instead to preserve order history
+            product.setIsActive(false);
+            product.setInStock(false);
+            productRepository.save(product);
+            throw new RuntimeException("Cannot delete product that has been ordered. Product has been deactivated instead.");
+        }
+
+        // Hard delete - remove all related entities first
+        // 1. Delete all cart items for this product
+        List<com.example.machines.entity.CartItem> cartItems = cartItemRepository.findByProductId(id);
+        cartItemRepository.deleteAll(cartItems);
+
+        // 2. Delete all favorites for this product
+        favoriteRepository.deleteByProductId(id);
+
+        // 3. Delete all reviews for this product
+        reviewRepository.deleteByProduct(product);
+
+        // 4. Delete all order items for this product (this will break order history)
+        // Note: This is a hard delete, so order history will lose product references
+        List<com.example.machines.entity.OrderItem> orderItems = orderItemRepository.findAll().stream()
+                .filter(item -> item.getProduct() != null && item.getProduct().getId().equals(id))
+                .collect(java.util.stream.Collectors.toList());
+        orderItemRepository.deleteAll(orderItems);
+
+        // 5. Now delete the product itself
+        productRepository.delete(product);
     }
 
     private void applyRequestToProduct(Product product, ProductRequest request) {
