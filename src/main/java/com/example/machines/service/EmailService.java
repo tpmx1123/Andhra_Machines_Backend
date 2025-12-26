@@ -127,7 +127,7 @@ public class EmailService {
             helper.setSubject("Order Status Update - Order #" + orderId);
             
             String content = "<h1>Order Status Updated</h1>" +
-                             "<p>Hi,</p>" +
+                             "<p>Dear customer,</p>" +
                              "<p>The status of your order <strong>#" + orderId + "</strong> has been updated to: <strong>" + status + "</strong>.</p>" +
                              "<p>Log in to your account to see more details.</p>" +
                              "<br><p>Best regards,<br>Andhra Sewing Machines</p>";
