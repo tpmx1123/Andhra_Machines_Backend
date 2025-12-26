@@ -101,7 +101,7 @@ public class EmailService {
             helper.setSubject("Order Confirmation - Order #" + orderId);
             
             String content = "<h1>Thank you for your order!</h1>" +
-                             "<p>Hi,</p>" +
+                             "<p>Dear customer,</p>" +
                              "<p>We've received your order <strong>#" + orderId + "</strong>.</p>" +
                              "<p>Total Amount: <strong>₹" + totalAmount + "</strong></p>" +
                              "<p>We will notify you when your order is shipped.</p>" +
