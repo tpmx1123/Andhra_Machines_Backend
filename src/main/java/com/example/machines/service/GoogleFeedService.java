@@ -9,6 +9,8 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,57 +27,84 @@ public class GoogleFeedService {
     private static final DateTimeFormatter RFC_822_FORMATTER = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z");
 
     public String generateGoogleProductFeed() {
-        List<Product> products = productRepository.findByIsActiveTrue();
-        
-        StringBuilder xml = new StringBuilder();
-        xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        xml.append("<rss version=\"2.0\" xmlns:g=\"http://base.google.com/ns/1.0\">\n");
-        xml.append("  <channel>\n");
-        xml.append("    <title>Andhra Machines Agencies - Sewing Machines</title>\n");
-        xml.append("    <link>").append(BASE_URL).append("</link>\n");
-        xml.append("    <description>Premium sewing machines and accessories from Andhra Machines Agencies</description>\n");
-        xml.append("    <lastBuildDate>").append(LocalDateTime.now().format(RFC_822_FORMATTER)).append("</lastBuildDate>\n");
-        
-        for (Product product : products) {
-            if (product.getInStock() != null && !product.getInStock()) {
-                continue; // Skip out of stock products
+        try {
+            List<Product> products = productRepository.findByIsActiveTrue();
+            
+            StringBuilder xml = new StringBuilder();
+            xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+            xml.append("<rss version=\"2.0\" xmlns:g=\"http://base.google.com/ns/1.0\">\n");
+            xml.append("  <channel>\n");
+            xml.append("    <title>Andhra Machines Agencies - Sewing Machines</title>\n");
+            xml.append("    <link>").append(BASE_URL).append("</link>\n");
+            xml.append("    <description>Premium sewing machines and accessories from Andhra Machines Agencies</description>\n");
+            
+            // Format date with timezone
+            try {
+                ZonedDateTime now = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
+                xml.append("    <lastBuildDate>").append(now.format(RFC_822_FORMATTER)).append("</lastBuildDate>\n");
+            } catch (Exception e) {
+                // Fallback to simple date format if RFC 822 fails
+                xml.append("    <lastBuildDate>").append(LocalDateTime.now().toString()).append("</lastBuildDate>\n");
             }
             
-            xml.append("    <item>\n");
-            
-            // Required fields
-            xml.append("      <g:id>").append(escapeXml(product.getId().toString())).append("</g:id>\n");
-            xml.append("      <title>").append(escapeXml(product.getTitle())).append("</title>\n");
-            xml.append("      <description>").append(escapeXml(getProductDescription(product))).append("</description>\n");
-            xml.append("      <link>").append(escapeXml(getProductUrl(product))).append("</link>\n");
-            xml.append("      <g:image_link>").append(escapeXml(getProductImage(product))).append("</g:image_link>\n");
-            xml.append("      <g:availability>").append(getAvailability(product)).append("</g:availability>\n");
-            xml.append("      <g:price>").append(formatPrice(product)).append("</g:price>\n");
-            xml.append("      <g:condition>new</g:condition>\n");
-            
-            // Brand (if available)
-            if (product.getBrandName() != null && !product.getBrandName().isEmpty()) {
-                xml.append("      <g:brand>").append(escapeXml(product.getBrandName())).append("</g:brand>\n");
-            }
-            
-            // Product type/category
-            xml.append("      <g:product_type>Sewing Machine</g:product_type>\n");
-            
-            // Additional fields for better visibility
-            if (product.getIsOnSale() != null && product.getIsOnSale()) {
-                xml.append("      <g:sale_price>").append(formatPrice(product)).append("</g:sale_price>\n");
-                if (product.getOriginalPrice() != null) {
-                    xml.append("      <g:price>").append(formatPrice(product.getOriginalPrice())).append("</g:price>\n");
+            for (Product product : products) {
+                try {
+                    if (product == null || (product.getInStock() != null && !product.getInStock())) {
+                        continue; // Skip null or out of stock products
+                    }
+                    
+                    // Skip if required fields are missing
+                    if (product.getId() == null || product.getTitle() == null || product.getTitle().isEmpty()) {
+                        continue;
+                    }
+                    
+                    xml.append("    <item>\n");
+                    
+                    // Required fields
+                    xml.append("      <g:id>").append(escapeXml(String.valueOf(product.getId()))).append("</g:id>\n");
+                    xml.append("      <title>").append(escapeXml(product.getTitle())).append("</title>\n");
+                    xml.append("      <description>").append(escapeXml(getProductDescription(product))).append("</description>\n");
+                    xml.append("      <link>").append(escapeXml(getProductUrl(product))).append("</link>\n");
+                    xml.append("      <g:image_link>").append(escapeXml(getProductImage(product))).append("</g:image_link>\n");
+                    xml.append("      <g:availability>").append(getAvailability(product)).append("</g:availability>\n");
+                    xml.append("      <g:price>").append(escapeXml(formatPrice(product))).append("</g:price>\n");
+                    xml.append("      <g:condition>new</g:condition>\n");
+                    
+                    // Brand (if available)
+                    if (product.getBrandName() != null && !product.getBrandName().isEmpty()) {
+                        xml.append("      <g:brand>").append(escapeXml(product.getBrandName())).append("</g:brand>\n");
+                    }
+                    
+                    // Product type/category
+                    xml.append("      <g:product_type>Sewing Machine</g:product_type>\n");
+                    
+                    // Additional fields for better visibility
+                    if (product.getIsOnSale() != null && product.getIsOnSale() && product.getPrice() != null) {
+                        xml.append("      <g:sale_price>").append(escapeXml(formatPrice(product))).append("</g:sale_price>\n");
+                        if (product.getOriginalPrice() != null) {
+                            xml.append("      <g:price>").append(escapeXml(formatPrice(product.getOriginalPrice()))).append("</g:price>\n");
+                        }
+                    }
+                    
+                    xml.append("    </item>\n");
+                } catch (Exception e) {
+                    // Log error but continue with other products
+                    System.err.println("Error processing product " + (product != null ? product.getId() : "null") + ": " + e.getMessage());
+                    e.printStackTrace();
+                    continue;
                 }
             }
             
-            xml.append("    </item>\n");
+            xml.append("  </channel>\n");
+            xml.append("</rss>");
+            
+            return xml.toString();
+        } catch (Exception e) {
+            System.err.println("Error generating Google product feed: " + e.getMessage());
+            e.printStackTrace();
+            // Return minimal valid XML on error
+            return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\" xmlns:g=\"http://base.google.com/ns/1.0\">\n  <channel>\n    <title>Andhra Machines Agencies</title>\n    <link>" + BASE_URL + "</link>\n    <description>Product feed temporarily unavailable</description>\n  </channel>\n</rss>";
         }
-        
-        xml.append("  </channel>\n");
-        xml.append("</rss>");
-        
-        return xml.toString();
     }
 
     public List<Map<String, Object>> generateGoogleProductFeedJson() {
@@ -137,6 +166,10 @@ public class GoogleFeedService {
     }
 
     private String getProductDescription(Product product) {
+        if (product == null) {
+            return "Premium sewing machine from Andhra Machines Agencies";
+        }
+        
         if (product.getDescription() != null && !product.getDescription().isEmpty()) {
             // Limit description to 5000 characters (Google's limit)
             String desc = product.getDescription();
@@ -145,7 +178,9 @@ public class GoogleFeedService {
             }
             return desc;
         }
-        return product.getTitle() + " - Premium sewing machine from Andhra Machines Agencies";
+        
+        String title = product.getTitle() != null ? product.getTitle() : "Sewing Machine";
+        return title + " - Premium sewing machine from Andhra Machines Agencies";
     }
 
     private String getAvailability(Product product) {
@@ -157,22 +192,38 @@ public class GoogleFeedService {
     }
 
     private String formatPrice(Product product) {
+        if (product == null || product.getPrice() == null) {
+            return "0.00 INR";
+        }
+        
         BigDecimal price = product.getPrice();
         
         // Apply scheduled price if active
-        if (product.getScheduledPrice() != null && 
-            product.getPriceStartDate() != null && 
-            product.getPriceEndDate() != null) {
-            LocalDateTime now = LocalDateTime.now();
-            if (now.isAfter(product.getPriceStartDate()) && now.isBefore(product.getPriceEndDate())) {
-                price = product.getScheduledPrice();
+        try {
+            if (product.getScheduledPrice() != null && 
+                product.getPriceStartDate() != null && 
+                product.getPriceEndDate() != null) {
+                ZoneId istZone = ZoneId.of("Asia/Kolkata");
+                ZonedDateTime nowZoned = ZonedDateTime.now(istZone);
+                LocalDateTime now = nowZoned.toLocalDateTime();
+                
+                if ((now.isAfter(product.getPriceStartDate()) || now.isEqual(product.getPriceStartDate())) &&
+                    (now.isBefore(product.getPriceEndDate()) || now.isEqual(product.getPriceEndDate()))) {
+                    price = product.getScheduledPrice();
+                }
             }
+        } catch (Exception e) {
+            // If scheduled price check fails, use regular price
+            System.err.println("Error checking scheduled price: " + e.getMessage());
         }
         
         return String.format("%.2f INR", price);
     }
 
     private String formatPrice(BigDecimal price) {
+        if (price == null) {
+            return "0.00 INR";
+        }
         return String.format("%.2f INR", price);
     }
 
