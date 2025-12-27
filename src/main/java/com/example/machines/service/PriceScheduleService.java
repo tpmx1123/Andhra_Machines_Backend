@@ -19,7 +19,7 @@ public class PriceScheduleService {
      * Check for scheduled price changes every minute
      * This ensures prices are updated in real-time when schedules trigger
      */
-    @Scheduled(fixedRate = 30000) // Run every 30 seconds
+    @Scheduled(fixedRate = 60000) // Run every 1 minute
     @Transactional
     public void checkScheduledPriceChanges() {
         // Get all products with active schedules
