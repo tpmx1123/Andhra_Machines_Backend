@@ -1,8 +1,10 @@
 package com.example.machines.service;
 
 import com.example.machines.dto.AuthResponse;
+import com.example.machines.dto.ForgotPasswordRequest;
 import com.example.machines.dto.LoginRequest;
 import com.example.machines.dto.RegisterRequest;
+import com.example.machines.dto.ResetPasswordRequest;
 import com.example.machines.entity.Admin;
 import com.example.machines.entity.User;
 import com.example.machines.repository.AdminRepository;
@@ -15,7 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -235,6 +240,90 @@ public class AuthService {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("success", false, "message", "Invalid or expired token"));
         }
+    }
+
+    public ResponseEntity<Map<String, Object>> forgotPassword(ForgotPasswordRequest request) {
+        try {
+            User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+            
+            // Always return success message for security (don't reveal if email exists)
+            if (user == null) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "If an account with that email exists, a password reset link has been sent."
+                ));
+            }
+
+            // Generate secure reset token
+            String resetToken = generateResetToken();
+            LocalDateTime expiryTime = LocalDateTime.now().plusHours(1); // Token valid for 1 hour
+
+            // Save token to user
+            user.setResetToken(resetToken);
+            user.setResetTokenExpiry(expiryTime);
+            userRepository.save(user);
+
+            // Send password reset email
+            try {
+                emailService.sendPasswordResetEmail(user.getEmail(), user.getName(), resetToken);
+            } catch (Exception e) {
+                System.err.println("Failed to send password reset email: " + e.getMessage());
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "If an account with that email exists, a password reset link has been sent."
+            ));
+        } catch (Exception e) {
+            System.err.println("Error in forgot password: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "An error occurred. Please try again."));
+        }
+    }
+
+    public ResponseEntity<Map<String, Object>> resetPassword(ResetPasswordRequest request) {
+        try {
+            // Find user by reset token
+            User user = userRepository.findByResetToken(request.getToken()).orElse(null);
+
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("success", false, "message", "Invalid or expired reset token."));
+            }
+
+            // Check if token is expired
+            if (user.getResetTokenExpiry() == null || user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
+                // Clear expired token
+                user.setResetToken(null);
+                user.setResetTokenExpiry(null);
+                userRepository.save(user);
+                
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("success", false, "message", "Reset token has expired. Please request a new one."));
+            }
+
+            // Update password
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+            user.setResetToken(null);
+            user.setResetTokenExpiry(null);
+            userRepository.save(user);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Password has been reset successfully. You can now login with your new password."
+            ));
+        } catch (Exception e) {
+            System.err.println("Error in reset password: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "An error occurred. Please try again."));
+        }
+    }
+
+    private String generateResetToken() {
+        SecureRandom random = new SecureRandom();
+        byte[] bytes = new byte[32];
+        random.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }
 

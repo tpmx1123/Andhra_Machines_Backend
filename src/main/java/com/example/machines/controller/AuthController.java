@@ -1,8 +1,10 @@
 package com.example.machines.controller;
 
 import com.example.machines.dto.AuthResponse;
+import com.example.machines.dto.ForgotPasswordRequest;
 import com.example.machines.dto.LoginRequest;
 import com.example.machines.dto.RegisterRequest;
+import com.example.machines.dto.ResetPasswordRequest;
 import com.example.machines.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,6 +75,16 @@ public class AuthController {
         
         String token = authHeader.substring(7);
         return authService.getCurrentUser(token);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return authService.forgotPassword(request);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        return authService.resetPassword(request);
     }
 }
 

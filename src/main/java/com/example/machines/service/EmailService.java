@@ -195,6 +195,76 @@ public class EmailService {
         }
     }
 
+    @Async
+    public void sendPasswordResetEmail(String toEmail, String userName, String resetToken) {
+        if (mailSender == null) return;
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setFrom(fromEmail, "Andhra Machines Agencies");
+            helper.setTo(toEmail);
+            helper.setSubject("Reset Your Password - Andhra Machines Agencies");
+            
+            // Reset password URL
+            String resetUrl = "https://andhramachinesagencies.com/reset-password?token=" + resetToken;
+            
+            // Professional HTML email template
+            String content = "<!DOCTYPE html>" +
+                    "<html>" +
+                    "<head>" +
+                    "<meta charset='UTF-8'>" +
+                    "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                    "</head>" +
+                    "<body style='margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;'>" +
+                    "<table width='100%' cellpadding='0' cellspacing='0' style='background-color: #f5f5f5; padding: 20px;'>" +
+                    "<tr>" +
+                    "<td align='center'>" +
+                    "<table width='600' cellpadding='0' cellspacing='0' style='background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>" +
+                    // Header
+                    "<tr>" +
+                    "<td style='background-color: #c54513; padding: 30px 20px; text-align: center;'>" +
+                    "<h1 style='color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;'>Password Reset Request</h1>" +
+                    "</td>" +
+                    "</tr>" +
+                    // Content
+                    "<tr>" +
+                    "<td style='padding: 30px 20px;'>" +
+                    "<p style='color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;'>Hi " + escapeHtml(userName) + ",</p>" +
+                    "<p style='color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;'>We received a request to reset your password for your Andhra Machines Agencies account.</p>" +
+                    "<p style='color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;'>Click the button below to reset your password:</p>" +
+                    "<div style='text-align: center; margin: 30px 0;'>" +
+                    "<a href='" + resetUrl + "' style='display: inline-block; background-color: #c54513; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 5px; font-weight: bold; font-size: 16px;'>Reset Password</a>" +
+                    "</div>" +
+                    "<p style='color: #666666; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;'>Or copy and paste this link into your browser:</p>" +
+                    "<p style='color: #c54513; font-size: 14px; word-break: break-all; margin: 5px 0;'>" + resetUrl + "</p>" +
+                    "<p style='color: #999999; font-size: 12px; line-height: 1.6; margin: 30px 0 0 0;'>This link will expire in 1 hour for security reasons.</p>" +
+                    "<p style='color: #999999; font-size: 12px; line-height: 1.6; margin: 10px 0 0 0;'>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>" +
+                    "</td>" +
+                    "</tr>" +
+                    // Footer
+                    "<tr>" +
+                    "<td style='background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #e0e0e0;'>" +
+                    "<p style='color: #666666; font-size: 14px; margin: 0 0 10px 0;'>Best regards,</p>" +
+                    "<p style='color: #c54513; font-size: 16px; font-weight: bold; margin: 0;'>Andhra Machines Agencies</p>" +
+                    "<p style='color: #999999; font-size: 12px; margin: 15px 0 0 0;'>Stitching Trust Since 1982</p>" +
+                    "</td>" +
+                    "</tr>" +
+                    "</table>" +
+                    "</td>" +
+                    "</tr>" +
+                    "</table>" +
+                    "</body>" +
+                    "</html>";
+            
+            helper.setText(content, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Error sending password reset email to " + toEmail + ": " + e.getMessage());
+        }
+    }
+
     private String escapeHtml(String text) {
         if (text == null) return "";
         return text.replace("&", "&amp;")
