@@ -193,6 +193,24 @@ public class ProductService {
             product.setScheduledPrice(request.getScheduledPrice());
             product.setPriceStartDate(request.getPriceStartDate());
             product.setPriceEndDate(request.getPriceEndDate());
+            
+            // Check if scheduled price is currently active and automatically set isOnSale
+            ZoneId istZone = ZoneId.of("Asia/Kolkata");
+            ZonedDateTime nowZoned = ZonedDateTime.now(istZone);
+            LocalDateTime now = nowZoned.toLocalDateTime();
+            LocalDateTime startDate = request.getPriceStartDate();
+            LocalDateTime endDate = request.getPriceEndDate();
+            
+            if ((now.isAfter(startDate) || now.isEqual(startDate)) && 
+                (now.isBefore(endDate) || now.isEqual(endDate))) {
+                // Scheduled price is currently active, automatically set isOnSale to true
+                product.setIsOnSale(true);
+                System.out.println("Scheduled price is currently active - automatically set isOnSale to true");
+            } else {
+                // Scheduled price is not active yet or has expired, set isOnSale to false
+                product.setIsOnSale(false);
+                System.out.println("Scheduled price is not active - automatically set isOnSale to false");
+            }
         } else {
             // If scheduling is being cleared, restore original price if it exists
             if (product.getOriginalPriceBeforeSchedule() != null && 
@@ -203,6 +221,7 @@ public class ProductService {
             product.setPriceStartDate(null);
             product.setPriceEndDate(null);
             product.setOriginalPriceBeforeSchedule(null);
+            // When schedule is cleared, don't automatically change isOnSale (let admin control it manually)
         }
 
         // Highlights / specs
@@ -268,57 +287,71 @@ public class ProductService {
                 (now.isBefore(endDate) || now.isEqual(endDate))) {
                 // Apply scheduled price if not already applied
                 System.out.println("Status: WITHIN scheduled period - Applying scheduled price");
+                
+                // Automatically set isOnSale to true when scheduled price is active
+                boolean needsSave = false;
+                if (product.getIsOnSale() == null || !product.getIsOnSale()) {
+                    product.setIsOnSale(true);
+                    needsSave = true;
+                    System.out.println("Automatically set isOnSale to true (scheduled price is active)");
+                }
+                
                 if (!product.getPrice().equals(product.getScheduledPrice())) {
-                    BigDecimal oldPrice = product.getPrice();
                     product.setPrice(product.getScheduledPrice());
-                    productRepository.save(product);
+                    needsSave = true;
                     System.out.println("Price updated to scheduled price: " + product.getScheduledPrice());
-                    
-                    // Send WebSocket notification
-                    PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
-                        product.getId(),
-                        product.getScheduledPrice(),
-                        product.getOriginalPriceBeforeSchedule(),
-                        "Price updated: Scheduled discount applied",
-                        "PRICE_CHANGED"
-                    );
-                    webSocketService.broadcastPriceUpdate(priceUpdate);
                 } else {
                     System.out.println("Price already set to scheduled price");
-                    // Send periodic sync notification to keep frontend in sync
-                    // This ensures frontend gets updated even if it missed the initial notification
-                    PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
-                        product.getId(),
-                        product.getScheduledPrice(),
-                        product.getOriginalPriceBeforeSchedule(),
-                        "Price sync: Scheduled price active",
-                        "PRICE_SYNC"
-                    );
-                    webSocketService.broadcastPriceUpdate(priceUpdate);
                 }
+                
+                if (needsSave) {
+                    productRepository.save(product);
+                }
+                
+                // Send WebSocket notification
+                PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
+                    product.getId(),
+                    product.getScheduledPrice(),
+                    product.getOriginalPriceBeforeSchedule(),
+                    "Price updated: Scheduled discount applied",
+                    "PRICE_CHANGED"
+                );
+                webSocketService.broadcastPriceUpdate(priceUpdate);
             } 
             // If before start date, use original price
             else if (now.isBefore(startDate)) {
                 System.out.println("Status: BEFORE start date - Using original price");
+                
+                boolean needsSave = false;
+                // Automatically set isOnSale to false when scheduled price hasn't started yet
+                if (product.getIsOnSale() != null && product.getIsOnSale()) {
+                    product.setIsOnSale(false);
+                    needsSave = true;
+                    System.out.println("Automatically set isOnSale to false (scheduled price not started yet)");
+                }
+                
                 if (product.getOriginalPriceBeforeSchedule() != null && 
                     !product.getPrice().equals(product.getOriginalPriceBeforeSchedule())) {
-                    BigDecimal oldPrice = product.getPrice();
                     product.setPrice(product.getOriginalPriceBeforeSchedule());
-                    productRepository.save(product);
+                    needsSave = true;
                     System.out.println("Price reverted to original: " + product.getOriginalPriceBeforeSchedule());
-                    
-                    // Send WebSocket notification
-                    PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
-                        product.getId(),
-                        product.getOriginalPriceBeforeSchedule(),
-                        product.getOriginalPriceBeforeSchedule(),
-                        "Price reverted: Schedule not started yet",
-                        "PRICE_REVERTED"
-                    );
-                    webSocketService.broadcastPriceUpdate(priceUpdate);
                 } else {
                     System.out.println("Price already set to original");
                 }
+                
+                if (needsSave) {
+                    productRepository.save(product);
+                }
+                
+                // Send WebSocket notification
+                PriceUpdateMessage priceUpdate = new PriceUpdateMessage(
+                    product.getId(),
+                    product.getOriginalPriceBeforeSchedule(),
+                    product.getOriginalPriceBeforeSchedule(),
+                    "Price reverted: Schedule not started yet",
+                    "PRICE_REVERTED"
+                );
+                webSocketService.broadcastPriceUpdate(priceUpdate);
             }
             // If end date has passed, revert to original price and clear scheduling
             else if (now.isAfter(endDate)) {
@@ -327,6 +360,12 @@ public class ProductService {
                 if (originalPrice != null) {
                     product.setPrice(originalPrice);
                     System.out.println("Price reverted to original: " + originalPrice);
+                }
+                
+                // Automatically set isOnSale to false when scheduled price expires
+                if (product.getIsOnSale() != null && product.getIsOnSale()) {
+                    product.setIsOnSale(false);
+                    System.out.println("Automatically set isOnSale to false (scheduled price expired)");
                 }
                 
                 // Clear scheduled price fields
